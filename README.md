@@ -1,56 +1,47 @@
-# starling-bank-mcp
+# Personal Starling Bank MCP
 
-MCP server for Starling Bank API integration, providing tools to interact with Starling Bank's developer API for account management and transactions.
+This is [a fork of domdomegg/starling-bank-mcp](https://github.com/domdomegg/starling-bank-mcp) for one account holder. It exposes six **read-only** MCP tools over stdio: account discovery, balances, Savings Spaces, all Spaces, dated transactions, and a settled GBP spending summary. Payment, payee, card, account setting, and Space mutation tools are absent from the registry. The server has no HTTP listener.
 
-https://github.com/user-attachments/assets/c2b23c22-bd23-487e-a4f5-c62e02280052
+## Starling access
 
-This is a 3rd party integration, and is not affiliated with Starling Bank.
+Create a personal access token in your own [Starling Developer Portal](https://developer.starlingbank.com/personal/token) with these read scopes: `account:read`, `account-list:read`, `balance:read`, `savings-goal:read`, `space:read`, and `transaction:read`. The accounts endpoint's current OpenAPI security declaration lists both account scopes. Do not grant payment, payee, or savings-goal creation or transfer scopes. Starling's [FAQ](https://developer.starlingbank.com/faq) explains that personal access tokens are for accessing your own account and that `/api/v2/identity/token` reports granted scopes.
 
-> [!WARNING]
-> At time of writing, models make frequent mistakes and are vulnerable to prompt injections. As this MCP server gives the model some control of your bank account, mistakes could be costly. Use with caution and at your own risk.
+Provide the token as `STARLING_BANK_ACCESS_TOKEN` to the process running this server. Keep it in a protected local secret store or Heroku config vars. Never put it in Git, a tunnel profile, or chat. The server returns bank data to ChatGPT when a tool is invoked. Account discovery omits account numbers and sort codes; transaction results omit counterparty bank identifiers. Raw upstream error bodies are never returned.
 
-## Installation
+## Local build and private tunnel
 
-Follow the instructions on [install-mcp](https://adamjones.me/install-mcp/?config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInN0YXJsaW5nLWJhbmstbWNwIl0sIm5hbWUiOiJzdGFybGluZy1iYW5rIiwiZW52Ijp7IlNUQVJMSU5HX0JBTktfQUNDRVNTX1RPS0VOIjoiZXlKaGIuLi4ifX0=), which generates the right config for your MCP client (Claude Code, Claude Desktop, Cursor, Cline, VS Code, and more).
+Requires Node 24.18 or later and the official `tunnel-client`.
 
-You'll need a Starling Bank personal access token. To create one:
-- [Sign up for a Starling Developers account](https://developer.starlingbank.com/signup)
-- [Link your Starling Bank account to your Starling Developer account](https://developer.starlingbank.com/settings/account)
-- [Create the access token](https://developer.starlingbank.com/personal/token), selecting the scopes based on what you want the AI system to be able to access
-
-Set it as `STARLING_BANK_ACCESS_TOKEN` (replacing the placeholder in the generated config). It'll probably begin something like `eyJhbGciOiJQUzI1NiIsInppcCI6IkdaSVAifQ.`, and be moderately long.
-
-If you want to be able to send payments, also see [PAYMENT_SIGNING_SETUP.md](./PAYMENT_SIGNING_SETUP.md).
-
-## Advanced: HTTP Transport
-
-By default, the server uses stdio transport (for Claude Desktop, Cursor, etc.). You can also run it as an HTTP server:
-
-```bash
-STARLING_BANK_ACCESS_TOKEN=eyJhb... MCP_TRANSPORT=http PORT=3000 npx starling-bank-mcp
+```sh
+npm ci
+npm run build
+npm test
+npm run lint
 ```
 
-The MCP endpoint will be available at `http://localhost:3000/mcp`.
+After creating a **separate Starling tunnel** in [Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels), load `STARLING_BANK_ACCESS_TOKEN` and `CONTROL_PLANE_API_KEY` into your local environment without displaying them. Then:
 
-> [!WARNING]
-> The HTTP transport has no authentication. Other processes on your machine—including websites in your browser—could potentially access the endpoint and control your bank account. Only use HTTP transport behind a reverse proxy or in another secured setup.
+```sh
+tunnel-client init --sample sample_mcp_stdio_local \
+  --profile starling-readonly \
+  --tunnel-id '<Starling tunnel ID>' \
+  --mcp-command 'node /absolute/path/to/starling-bank-mcp/dist/main.js'
+tunnel-client doctor --profile starling-readonly --explain
+tunnel-client run --profile starling-readonly
+```
 
-## Contributing
+Keep the tunnel running. In ChatGPT's developer-mode Plugins screen, create a connection using **Tunnel**, select the separate Starling tunnel, and review the discovered six tools. Ask for an account balance in a normal conversation. A named second channel on the Cronometer tunnel is not treated as an independently discoverable connection. The existing Cronometer tunnel and its `main` channel remain untouched. [OpenAI's Secure MCP Tunnel documentation](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) describes workspace association, tunnel selection, and `doctor` checks.
 
-Pull requests are welcomed on GitHub! To get started:
+## Optional Heroku worker
 
-1. Install Git and Node.js
-2. Clone the repository
-3. Install dependencies with `npm install`
-4. Run `npm run test` to run tests
-5. Build with `npm run build`
+`Dockerfile.heroku` and `heroku_worker.sh` package this server and the pinned tunnel client as an outbound-only worker. They require `STARLING_BANK_ACCESS_TOKEN`, `CONTROL_PLANE_TUNNEL_ID` for the separate Starling tunnel, and `CONTROL_PLANE_API_KEY`. The image has no public banking endpoint. Deploy only to a **separate** Heroku app after approval of its recurring dyno cost and deployment. Do not push or release this image to the existing Cronometer app. A local tunnel avoids an additional dyno while the computer is running.
 
-## Releases
+Rollback: stop this worker or local tunnel and disconnect the Starling connection in ChatGPT. Revoke the Starling personal token in the Developer Portal if retiring the integration. Cronometer needs no rollback because its deployment is unchanged.
 
-Versions follow the [semantic versioning spec](https://semver.org/).
+## Data and safety limits
 
-To release:
+Amounts are integer minor units; GBP 2050 minor units means £20.50. `clearedBalance` excludes pending activity, `effectiveBalance` includes it, and `total*Balance` includes Space allocations. Do not add Space balances to total balances. Accepted overdraft is credit, not income.
 
-1. Use `npm version <major | minor | patch>` to bump the version
-2. Run `git push --follow-tags` to push with tags
-3. Wait for GitHub Actions to publish to the NPM registry.
+`transactions_list` is limited to 32 days. `spending_summary` counts settled outbound GBP feed items, excludes `INTERNAL_TRANSFER`, and reports pending and transfer-like outflows separately. External transfers to another account you own cannot be proven from this feed, and Starling spending categories can be changed. A genuinely unallocated amount also requires upcoming bills and the next income date; this server will not invent them.
+
+Starling's Savings Goals API supports creation, deposits and withdrawals with separate scopes. The current OpenAPI Spaces API lists Spending Spaces but does not provide equivalent mutation endpoints. Savings Space writes are **not registered or executable** here. They require verified ChatGPT write confirmation, an independent transaction-specific approval channel, preflight balance checks, transfer limits, a durable idempotency store, and uncertain/partial outcome reconciliation before activation. No live transfer is used in tests.

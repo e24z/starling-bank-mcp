@@ -121,66 +121,6 @@ describe('Output schema validation', () => {
 		expect(() => schema.parse(result.structuredContent)).not.toThrow();
 	});
 
-	test('account_identifiers_get', async () => {
-		const result = await callTool('account_identifiers_get', {accountUid}) as {structuredContent?: unknown};
-		const schema = z.object({
-			accountIdentifier: z.string().optional(),
-			bankIdentifier: z.string().optional(),
-			iban: z.string().optional(),
-			bic: z.string().optional(),
-			accountIdentifiers: z.array(z.object({
-				identifierType: z.string().optional(),
-				bankIdentifier: z.string().optional(),
-				accountIdentifier: z.string().optional(),
-			})).optional(),
-		});
-		expect(result.structuredContent).toBeDefined();
-		expect(() => schema.parse(result.structuredContent)).not.toThrow();
-	});
-
-	test('payees_list', async () => {
-		const result = await callTool('payees_list') as {structuredContent?: unknown};
-		const schema = z.object({
-			payees: z.array(z.object({
-				payeeUid: z.string(),
-				payeeName: z.string(),
-				payeeType: z.string(),
-			}).loose()),
-		});
-		expect(result.structuredContent).toBeDefined();
-		expect(() => schema.parse(result.structuredContent)).not.toThrow();
-	});
-
-	test('cards_list', async () => {
-		const result = await callTool('cards_list') as {structuredContent?: unknown};
-		const schema = z.object({
-			cards: z.array(z.object({
-				cardUid: z.string(),
-				enabled: z.boolean(),
-			}).loose()),
-		});
-		expect(result.structuredContent).toBeDefined();
-		expect(() => schema.parse(result.structuredContent)).not.toThrow();
-	});
-
-	test('direct_debits_list', async () => {
-		const result = await callTool('direct_debits_list', {accountUid}) as {structuredContent?: unknown};
-		const schema = z.object({
-			mandates: z.array(z.object({}).loose()),
-		});
-		expect(result.structuredContent).toBeDefined();
-		expect(() => schema.parse(result.structuredContent)).not.toThrow();
-	});
-
-	test('standing_orders_list', async () => {
-		const result = await callTool('standing_orders_list', {accountUid, categoryUid}) as {structuredContent?: unknown};
-		const schema = z.object({
-			standingOrders: z.array(z.object({}).loose()),
-		});
-		expect(result.structuredContent).toBeDefined();
-		expect(() => schema.parse(result.structuredContent)).not.toThrow();
-	});
-
 	test('savings_goals_list', async () => {
 		const result = await callTool('savings_goals_list', {accountUid}) as {structuredContent?: unknown};
 		const schema = z.object({
@@ -197,7 +137,7 @@ describe('Output schema validation', () => {
 			accountUid,
 			categoryUid,
 			minTransactionTimestamp: '2024-01-01T00:00:00.000Z',
-			maxTransactionTimestamp: '2024-12-31T23:59:59.999Z',
+			maxTransactionTimestamp: '2024-01-31T23:59:59.999Z',
 		}) as {structuredContent?: unknown};
 		const schema = z.object({
 			feedItems: z.array(z.object({}).loose()),

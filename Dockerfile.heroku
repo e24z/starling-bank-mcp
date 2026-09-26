@@ -1,0 +1,30 @@
+# A separate worker app and tunnel. Never deploy this image over Cronometer.
+FROM node:24.18.0-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json tsconfig*.json ./
+RUN npm ci
+COPY src ./src
+RUN npm run build
+
+FROM node:24.18.0-slim
+ARG TUNNEL_CLIENT_VERSION=0.0.10
+ARG TUNNEL_CLIENT_SHA256=b9e0388a343f2d7adeff3992f411a0bd3d916a64bc56534aac5fd15ac1b20cd5
+ENV NODE_ENV=production
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates curl unzip \
+    && curl --fail --location --show-error \
+      "https://github.com/openai/tunnel-client/releases/download/v${TUNNEL_CLIENT_VERSION}/tunnel-client-v${TUNNEL_CLIENT_VERSION}-linux-amd64.zip" \
+      --output /tmp/tunnel-client.zip \
+    && echo "${TUNNEL_CLIENT_SHA256}  /tmp/tunnel-client.zip" | sha256sum --check --strict \
+    && unzip /tmp/tunnel-client.zip -d /usr/local/bin \
+    && chmod 0755 /usr/local/bin/tunnel-client \
+    && rm /tmp/tunnel-client.zip \
+    && apt-get purge --yes --auto-remove curl unzip \
+    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
+COPY start_mcp.sh heroku_worker.sh ./
+RUN chmod 0755 /app/start_mcp.sh /app/heroku_worker.sh
+CMD ["/app/heroku_worker.sh"]

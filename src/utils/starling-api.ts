@@ -16,8 +16,15 @@ function createBaseHeaders(accessToken: string): Record<string, string> {
 
 // Common helper to handle API errors
 async function handleApiError(response: Response): Promise<never> {
-	const errorText = await response.text();
-	throw new Error(`Starling API error: ${response.status} ${response.statusText} - ${errorText}`);
+	// MCP errors are model-visible, so never surface arbitrary upstream bodies.
+	const message = response.status === 401
+		? 'Invalid or expired Starling token'
+		: response.status === 403
+			? 'Starling token lacks a required scope'
+			: response.status === 429
+				? 'Starling rate limit reached'
+				: response.status >= 500 ? 'Starling service is unavailable' : 'Starling request failed';
+	throw new Error(`${message} (HTTP ${response.status}).`);
 }
 
 // Common helper to parse response based on content type
@@ -38,8 +45,8 @@ async function parseResponse(response: Response): Promise<unknown> {
 
 		try {
 			return JSON.parse(responseText);
-		} catch (error) {
-			throw new Error(`Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}`);
+		} catch {
+			throw new Error('Invalid JSON from Starling.');
 		}
 	}
 
@@ -54,7 +61,7 @@ async function parseResponse(response: Response): Promise<unknown> {
 		return {success: true, message: 'Operation completed successfully'};
 	}
 
-	return text;
+	throw new Error('Unexpected non-JSON response from Starling.');
 }
 
 // Function to create message signature for payment endpoints

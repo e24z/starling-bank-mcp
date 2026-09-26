@@ -25,7 +25,7 @@ export function registerAccountBalanceGet(server: McpServer, config: Config): vo
 		'account_balance_get',
 		{
 			title: 'Get account balance',
-			description: 'Get the balance for a specific account. Shows both cleared balance (settled transactions) and effective balance (including pending transactions).',
+			description: 'Get a specific account balance. Cleared excludes pending transactions; effective includes them. Total balance includes allocated Spaces, so do not add Space balances to it. Accepted overdraft is credit, not spendable income.',
 			inputSchema: {
 				...accountUid,
 			},

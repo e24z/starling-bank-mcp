@@ -98,17 +98,15 @@ describe('makeStarlingApiCall response parsing', () => {
 		expect(result).toEqual({savingsGoalUid: 'abc', success: true});
 	});
 
-	test('returns non-empty non-JSON bodies as text', async () => {
+	test('rejects non-empty non-JSON bodies without echoing them', async () => {
 		const {makeStarlingApiCall} = await import('./starling-api.js');
 
-		const result = await makeStarlingApiCall('/text', 'test-token');
-
-		expect(result).toBe('some plain text');
+		await expect(makeStarlingApiCall('/text', 'test-token')).rejects.toThrow('Unexpected non-JSON response');
 	});
 
 	test('throws on error responses', async () => {
 		const {makeStarlingApiCall} = await import('./starling-api.js');
 
-		await expect(makeStarlingApiCall('/missing', 'test-token')).rejects.toThrow('Starling API error: 404');
+		await expect(makeStarlingApiCall('/missing', 'test-token')).rejects.toThrow('Starling request failed (HTTP 404).');
 	});
 });
