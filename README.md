@@ -10,7 +10,7 @@ Provide the token as `STARLING_BANK_ACCESS_TOKEN` to the process running this se
 
 ## Local build and private tunnel
 
-Requires Node 24.18 or later and the official `tunnel-client`.
+Requires Node 24 and the official `tunnel-client`. The Docker image pins Node 24.18; the local live check used Node 24.15.
 
 ```sh
 npm ci
