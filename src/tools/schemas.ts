@@ -2,12 +2,12 @@ import {z} from 'zod';
 
 // Common field schemas - spread into inputSchema objects
 export const accountUid = {
-	accountUid: z.string().describe('The account UID'),
+	accountUid: z.string().regex(/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i).describe('The account UID'),
 };
 
 export const categoryUid = {
 	...accountUid,
-	categoryUid: z.string().describe('The category UID (use default category for main account)'),
+	categoryUid: z.string().regex(/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i).describe('The category UID (use default category for main account)'),
 };
 
 export const feedItemUid = {

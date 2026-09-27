@@ -7,7 +7,7 @@ import {jsonResult} from '../utils/response.js';
 
 const currencyAndAmount = z.object({
 	currency: z.string(),
-	minorUnits: z.number(),
+	minorUnits: z.number().int(),
 });
 
 const feedItem = z.object({
@@ -28,8 +28,6 @@ const feedItem = z.object({
 	counterPartyName: z.string().optional(),
 	counterPartySubEntityUid: z.string().optional(),
 	counterPartySubEntityName: z.string().optional(),
-	counterPartySubEntityIdentifier: z.string().optional(),
-	counterPartySubEntitySubIdentifier: z.string().optional(),
 	exchangeRate: z.number().optional(),
 	totalFees: z.number().optional(),
 	totalFeeAmount: currencyAndAmount.optional(),
@@ -53,8 +51,8 @@ export function registerTransactionsList(server: McpServer, config: Config): voi
 			description: 'Get transaction feed items for an account category. Use the default category UID for main account transactions.',
 			inputSchema: {
 				...categoryUid,
-				minTransactionTimestamp: z.string().describe('Start date for transactions (ISO 8601 format, e.g., 2024-01-01T00:00:00.000Z)'),
-				maxTransactionTimestamp: z.string().describe('End date for transactions (ISO 8601 format, e.g., 2024-12-31T23:59:59.999Z)'),
+				minTransactionTimestamp: z.iso.datetime({offset: true}).describe('Inclusive start timestamp in ISO 8601 format'),
+				maxTransactionTimestamp: z.iso.datetime({offset: true}).describe('Inclusive end timestamp in ISO 8601 format, at most 32 days after start'),
 			},
 			outputSchema,
 			annotations: {
@@ -62,6 +60,12 @@ export function registerTransactionsList(server: McpServer, config: Config): voi
 			},
 		},
 		async ({accountUid, categoryUid, minTransactionTimestamp, maxTransactionTimestamp}) => {
+			const start = Date.parse(minTransactionTimestamp);
+			const end = Date.parse(maxTransactionTimestamp);
+			if (end < start || end - start > 32 * 86_400_000) {
+				throw new Error('Choose an inclusive transaction range of at most 32 days.');
+			}
+
 			let endpoint = `/api/v2/feed/account/${accountUid}/category/${categoryUid}`;
 
 			if (minTransactionTimestamp || maxTransactionTimestamp) {

@@ -28,7 +28,7 @@ export function registerSavingsGoalsList(server: McpServer, config: Config): voi
 		'savings_goals_list',
 		{
 			title: 'List savings goals',
-			description: 'Get all savings goals for an account',
+			description: 'Get Savings Spaces for an account, including names, IDs and saved balances. These are allocations within the account and are not additional cash.',
 			inputSchema: {
 				...accountUid,
 			},

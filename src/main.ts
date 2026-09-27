@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
-import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import express from 'express';
 import {createServer} from './index.js';
 
 function setupSignalHandlers(cleanup: () => Promise<void>): void {
@@ -33,37 +31,9 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 		const stdioTransport = new StdioServerTransport();
 		await server.connect(stdioTransport);
-		console.error('Starling Bank MCP server running on stdio');
-	} else if (transport === 'http') {
-		const accessToken = getAccessToken();
-		const app = express();
-		app.use(express.json({limit: '20mb'}));
-
-		// Stateless: fresh server + transport per request — sharing either misroutes responses on concurrent requests with colliding JSON-RPC IDs (GHSA-345p-7cg4-v4c7).
-		app.post('/mcp', async (req, res) => {
-			const server = createServer({accessToken});
-			const httpTransport = new StreamableHTTPServerTransport({
-				sessionIdGenerator: undefined,
-				enableJsonResponse: true,
-			});
-			res.on('close', () => {
-				void server.close();
-			});
-			await server.connect(httpTransport);
-			await httpTransport.handleRequest(req, res, req.body);
-		});
-
-		const port = parseInt(process.env.PORT || '3000', 10);
-		const httpServer = app.listen(port, () => {
-			console.error(`Starling Bank MCP server running on http://localhost:${port}/mcp`);
-			console.error('WARNING: HTTP transport has no authentication. Only use behind a reverse proxy or in a secured setup.');
-		});
-
-		setupSignalHandlers(async () => {
-			httpServer.close();
-		});
+		console.error('Starling Bank read-only MCP server running on stdio');
 	} else {
-		console.error(`Unknown transport: ${transport}. Use MCP_TRANSPORT=stdio or MCP_TRANSPORT=http`);
+		console.error('Only private stdio transport is enabled in this fork.');
 		process.exit(1);
 	}
 })();
