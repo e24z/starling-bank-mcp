@@ -30,6 +30,20 @@ tunnel-client doctor --profile starling-readonly --explain
 tunnel-client run --profile starling-readonly
 ```
 
+On this Mac, `start_mcp_local.sh` reads the six-scope Starling token from the `starling-mcp-readonly` Keychain item when the MCP server starts. `run_tunnel_local.sh` reads the existing Personal organization tunnel runtime key from Keychain when `tunnel-client` starts. The tunnel profile contains only a secret reference and the MCP command path. Neither script prints or stores a credential. The Starling tunnel and ChatGPT app are separate from the Cronometer tunnel and app. To keep the local tunnel running after closing the terminal, use the tunnel client's managed runtime:
+
+```sh
+tunnel-client runtimes connect \
+  --alias starling-readonly --profile starling-readonly \
+  --tunnel-id '<Starling tunnel ID>' \
+  --mcp-command "$PWD/start_mcp_local.sh" \
+  --runtime-api-key env:CONTROL_PLANE_API_KEY \
+  --tunnel-client-bin "$PWD/run_tunnel_local.sh"
+tunnel-client runtimes status starling-readonly --json
+```
+
+The local runtime is available while this Mac is awake and running it. After a restart, reconnect or start the runtime before asking ChatGPT for fresh data.
+
 Keep the tunnel running. In ChatGPT's developer-mode Plugins screen, create a connection using **Tunnel**, select the separate Starling tunnel, and review the discovered six tools. Ask for an account balance in a normal conversation. A named second channel on the Cronometer tunnel is not treated as an independently discoverable connection. The existing Cronometer tunnel and its `main` channel remain untouched. [OpenAI's Secure MCP Tunnel documentation](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) describes workspace association, tunnel selection, and `doctor` checks.
 
 ## Optional Heroku worker
